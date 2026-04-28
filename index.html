@@ -308,6 +308,7 @@
         const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUYQGdhyZVe--2uuwb4dgfi44pBg_Rk6yj7zdlNmWg0F_rAJg2z2V7gkBWHsGznsg-VsEWAjNeUG5q/pub?output=csv";
 
         let cachedDataPromise = null;
+        let isDataCached = false;
 
         async function fetchScrapData(category) {
             const cacheBuster = new Date().getTime();
@@ -344,10 +345,17 @@
                                 });
                             }
                         }),
-                        fetch(`${PROD_URL}&t=${cacheBuster}`).then(r => r.json()).catch(() => ({ summaries: [] }))
-                    ]);
+                        fetch(`${PROD_URL}&t=${cacheBuster}`).then(r => r.json()).catch(() => ({ summaries: [] })),
+                        new Promise((resolve, reject) => {
+                            const newCsvUrl = "https://docs.google.com/spreadsheets/d/1GHwq2tHt0ZDwuGHfTZSov6b2JgfURUKt7c8WLZWPGKs/export?format=csv&gid=805147683";
+                            Papa.parse(`${newCsvUrl}&t=${cacheBuster}`, { download: true, header: false, complete: resolve, error: reject });
+                        }).catch(() => null)
+                    ]).then(res => {
+                        isDataCached = true;
+                        return res;
+                    });
                 }
-                const [oldData, newData, prodDataReq] = await cachedDataPromise;
+                const [oldData, newData, prodDataReq, newCsvData] = await cachedDataPromise;
 
                 const monthlyDataMap = {};
                 for (let i = 1; i <= 12; i++) {
@@ -446,10 +454,47 @@
 
                         if (addedProdWeight > 0) {
                             if (monthlyDataMap[month][year].newProdWeight === undefined) {
-                                  monthlyDataMap[month][year].newProdWeight = 0;
+                                monthlyDataMap[month][year].newProdWeight = 0;
                             }
                             monthlyDataMap[month][year].newProdWeight += addedProdWeight;
                         }
+                    });
+                }
+
+                if (newCsvData && newCsvData.data) {
+                    newCsvData.data.forEach((row) => {
+                       const dateStr = String(row[0]).trim();
+                       if (!dateStr || dateStr === 'Date' || dateStr.toUpperCase() === 'DATE') return;
+                       
+                       const d = new Date(dateStr);
+                       if (isNaN(d.getTime())) return;
+                       d.setUTCHours(d.getUTCHours() + 12);
+                       const month = (d.getUTCMonth() + 1).toString().padStart(2, "0");
+                       const year = d.getUTCFullYear().toString();
+
+                       if (!monthlyDataMap[month]) monthlyDataMap[month] = {};
+                       if (!monthlyDataMap[month][year]) {
+                           monthlyDataMap[month][year] = { prodWeight: null, scrapPercentRubber: null, scrapPercentPlyChafer: null, scrapPercentBW: null };
+                           const fields = ['mxRubber','mxCbRubber','mxChmRubber','exRubber','clPlyRubber','clFabricRubber','clRbRubber','clRubber','clChRubber','ctChRubber','ctRbRubber','ctRubber','ctPlyRubber','ctBwRubber','bdRbRubber','bdPlyRubber','bdChRubber','bdBwRubber','curingRubber','rispRubber','rispPlyRubber','rispChRubber','exPlyRubber'];
+                           fields.forEach(f => { monthlyDataMap[month][year][f] = 0; });
+                       }
+                       
+                       // Column O is 14 (Rubber), P is 15 (PLY/CH), Q is 16 (BW)
+                       const parseTarget = (val) => {
+                           if (val === undefined || val === null) return null;
+                           const v = String(val).replace('%', '').trim();
+                           if (!v) return null;
+                           const parsed = parseFloat(v);
+                           return isNaN(parsed) ? null : parsed;
+                       };
+
+                       const rubTarget = parseTarget(row[14]);
+                       const plyTarget = parseTarget(row[15]);
+                       const bwTarget = parseTarget(row[16]);
+                       
+                       if (rubTarget !== null) monthlyDataMap[month][year].scrapPercentRubber = rubTarget;
+                       if (plyTarget !== null) monthlyDataMap[month][year].scrapPercentPlyChafer = plyTarget;
+                       if (bwTarget !== null) monthlyDataMap[month][year].scrapPercentBW = bwTarget;
                     });
                 }
 
@@ -1175,7 +1220,16 @@
                     else if (category === 'BW ALL') scrapType = 'BW';
                     else if (category === 'CH ALL') scrapType = 'CHAFER';
                     else if (category === 'PLY/CH ALL') scrapType = 'PLY/CH';
-                    else scrapType = "TOTAL";
+                    else {
+                        const cParts = category.split('_');
+                        if (cParts.length >= 2) {
+                            section = cParts[0];
+                            scrapType = cParts.slice(1).join('_');
+                            if (scrapType === 'RB') scrapType = 'RUBBER';
+                        } else {
+                            scrapType = "TOTAL";
+                        }
+                    }
                 }
                 
                 // Map dashboard labels to Google Sheet values
@@ -2185,7 +2239,7 @@
 
             useEffect(() => {
                 if (categories.includes(category)) {
-                    setLoading(true);
+                    if (!isDataCached) setLoading(true);
                     fetchScrapData(category)
                         .then(data => {
                             setChartData(data);
@@ -2193,6 +2247,7 @@
                         })
                         .catch(err => {
                             console.error("Failed to fetch data", err);
+                            setChartData(fallbackData);
                             setLoading(false);
                         });
                 } else {
