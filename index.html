@@ -1326,11 +1326,13 @@
                     let colDateIdx = 0, colTypeIdx = 6, colSectionIdx = 7, colWeightIdx = 2; // Defaults
                     if (headerRow && Array.isArray(headerRow)) {
                         const dIdx = headerRow.findIndex(h => String(h).toUpperCase().trim() === 'DATE');
-                        const mIdx = headerRow.findIndex(h => String(h).toUpperCase().trim() === 'MATERIAL' || String(h).toUpperCase().trim() === 'TYPE');
+                        const mIdx = headerRow.findIndex(h => { const up = String(h).toUpperCase().trim(); return up === 'MATERIAL' || up === 'TYPE'; });
                         const sIdx = headerRow.findIndex(h => String(h).toUpperCase().trim() === 'SECTION');
+                        const wIdx = headerRow.findIndex(h => String(h).toUpperCase().trim() === 'WEIGHT');
                         if (dIdx !== -1) colDateIdx = dIdx;
                         if (mIdx !== -1) colTypeIdx = mIdx;
                         if (sIdx !== -1) colSectionIdx = sIdx;
+                        if (wIdx !== -1) colWeightIdx = wIdx;
                     }
 
                     const filteredData = dataArray.filter((item, index) => {
@@ -1340,6 +1342,12 @@
                             const colA = Array.isArray(item) ? item[colDateIdx] : (item['Column A'] || item['Date'] || Object.values(item)[colDateIdx]);
                             const colG = Array.isArray(item) ? item[colTypeIdx] : (item['Column G'] || item['TYPE'] || item['Material'] || Object.values(item)[colTypeIdx]);
                             const colH = Array.isArray(item) ? item[colSectionIdx] : (item['Column H'] || item['SECTION'] || item['Section'] || Object.values(item)[colSectionIdx]);
+                            const colW = Array.isArray(item) ? item[colWeightIdx] : (item['Column C'] || item['Weight'] || Object.values(item)[colWeightIdx]);
+
+                            const weightVal = parseFloat(String(colW).replace(/,/g, ''));
+                            if (isNaN(weightVal) || weightVal === 0) {
+                                return false; // Skip rows where weight is 0
+                            }
                             
                             let matchDate = false;
                             if (colA) {
@@ -1504,7 +1512,10 @@
                         </head>
                         <body>
                             <div class="container">
-                                <h3>${translate('Details for')} ${currentLabel} - ${translate('Month')} ${monthStr}</h3>
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                                    <h3 style="margin: 0; flex: 1;">${translate('Details for')} ${currentLabel} - ${translate('Month')} ${monthStr}</h3>
+                                    <div id="header-weight-total" style="font-size: 20px; font-weight: bold; background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; padding: 6px 16px; border-radius: 8px; display: none;"></div>
+                                </div>
                                 <div id="content"></div>
                             </div>
                             <script>
@@ -1546,6 +1557,7 @@
                                         }
                                     });
                                     
+                                    let weightTotalStr = '';
                                     const totalRow = tbody.querySelector('.total-row');
                                     if (totalRow) {
                                         const totalCells = totalRow.querySelectorAll('td');
@@ -1553,11 +1565,34 @@
                                             if (index === 0) {
                                                 cell.textContent = '${translate('Total')}';
                                             } else if (hasNumericColumn[index]) {
-                                                cell.textContent = Number.isInteger(totals[index]) ? totals[index] : totals[index].toFixed(2);
+                                                const val = Number.isInteger(totals[index]) ? totals[index] : totals[index].toFixed(2);
+                                                cell.textContent = val;
+                                                
+                                                const th = table.querySelectorAll('th')[index];
+                                                if (th) {
+                                                    const colName = th.textContent.toUpperCase();
+                                                    if (colName.includes('WEIGHT') || colName.includes('重量')) {
+                                                        weightTotalStr = val;
+                                                    }
+                                                }
                                             } else {
                                                 cell.textContent = '';
                                             }
                                         });
+
+                                        if (!weightTotalStr && totals[2] > 0) {
+                                            weightTotalStr = Number.isInteger(totals[2]) ? totals[2] : totals[2].toFixed(2);
+                                        }
+                                    }
+                                    
+                                    const headerTotal = document.getElementById('header-weight-total');
+                                    if (headerTotal) {
+                                        if (weightTotalStr !== '') {
+                                            headerTotal.textContent = '${translate('Total Weight')}: ' + weightTotalStr;
+                                            headerTotal.style.display = 'block';
+                                        } else {
+                                            headerTotal.style.display = 'none';
+                                        }
                                     }
                                 }
                                 setTimeout(filterTable, 100);
