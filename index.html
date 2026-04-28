@@ -400,10 +400,13 @@
                     else if (category === 'CT_PLY') prodWeight = getVal(20);
                     else if (category === 'CT_BW' || category === 'BW ALL') prodWeight = getVal(22);
                     else if (category === 'BD_RB') prodWeight = getVal(24);
-                    else if (category === 'BD_PLY' || category === 'RSIP_PLY') prodWeight = getVal(26);
-                    else if (category === 'BD_CH' || category === 'RSIP_CH') prodWeight = getVal(28);
+                    else if (category === 'BD_PLY') prodWeight = getVal(26);
+                    else if (category === 'BD_CH') prodWeight = getVal(28);
                     else if (category === 'BD_BW') prodWeight = getVal(30);
-                    else if (category === 'CUR_RB' || category === 'RSIP_RB') prodWeight = getVal(2);
+                    else if (category === 'CUR_RB') prodWeight = getVal(32);
+                    else if (category === 'RSIP_RB') prodWeight = getVal(34);
+                    else if (category === 'RSIP_PLY') prodWeight = getVal(36);
+                    else if (category === 'RSIP_CH') prodWeight = getVal(38);
                     else if (category === 'PLY/CH ALL') {
                         const pProd = getVal(8);
                         const cProd = getVal(16);
@@ -597,9 +600,9 @@
                     if ((section === 'TB' || section === 'BD' || section === 'TIRE BUILDING') && (scrapType === 'CHAFER' || scrapType === 'CH')) target.bdChRubber += weight;
                     if ((section === 'TB' || section === 'BD' || section === 'TIRE BUILDING') && (scrapType === 'BW' || scrapType === 'BEAD WIRE')) target.bdBwRubber += weight;
                     if ((section === 'CR' || section === 'CURING' || section === 'CUR' || section === 'CUR_RB') && scrapType === 'RUBBER') target.curingRubber += weight;
-                    if (section === 'RISP' && scrapType === 'RUBBER') target.rispRubber += weight;
-                    if (section === 'RISP' && scrapType === 'PLY') target.rispPlyRubber += weight;
-                    if (section === 'RISP' && (scrapType === 'CHAFER' || scrapType === 'CH')) target.rispChRubber += weight;
+                    if ((section === 'RISP' || section === 'RUBBER INSPECTION') && scrapType === 'RUBBER') target.rispRubber += weight;
+                    if ((section === 'RISP' || section === 'RUBBER INSPECTION') && scrapType === 'PLY') target.rispPlyRubber += weight;
+                    if ((section === 'RISP' || section === 'RUBBER INSPECTION') && (scrapType === 'CHAFER' || scrapType === 'CH')) target.rispChRubber += weight;
 
                     target.clRubber = target.clRbRubber;
                     target.ctRubber = target.ctRbRubber;
@@ -1413,6 +1416,7 @@
                                 else if (mappedSection === 'CT') allowedSections.push('CT', 'CUTTING');
                                 else if (mappedSection === 'TB' || mappedSection === 'BD') allowedSections.push('TB', 'BD', 'TIRE BUILDING');
                                 else if (mappedSection === 'CR' || mappedSection === 'CUR' || mappedSection === 'CURING' || mappedSection === 'CUR_RB') allowedSections.push('CR', 'CUR', 'CURING', 'CUR_RB');
+                                else if (mappedSection === 'RISP' || mappedSection === 'RUBBER INSPECTION') allowedSections.push('RISP', 'RUBBER INSPECTION');
                                 else allowedSections.push(mappedSection);
 
                                 matchSection = allowedSections.includes(rowSection);
